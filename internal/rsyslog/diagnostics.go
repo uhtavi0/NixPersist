@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// Result captures feasibility checks for using gopersist on a host.
+// Result captures feasibility checks for using NixPersist on a host.
 type Result struct {
 	RsyslogInstalled         bool
 	RsyslogRunning           bool

@@ -9,14 +9,14 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"gopersist/internal/dockercompose"
-	"gopersist/internal/rsyslog"
+	"nixpersist/internal/dockercompose"
+	"nixpersist/internal/rsyslog"
 )
 
 var version = "0.0.0-dev"
 
 func main() {
-	root := pflag.NewFlagSet("gopersist", pflag.ContinueOnError)
+	root := pflag.NewFlagSet("nixpersist", pflag.ContinueOnError)
 	root.SortFlags = false
 	root.SetOutput(os.Stdout)
 	root.SetInterspersed(false)
@@ -34,7 +34,7 @@ func main() {
 	}
 
 	if *showVersion {
-		fmt.Println("gopersist", version)
+		fmt.Println("nixpersist", version)
 		return
 	}
 
@@ -69,10 +69,10 @@ func main() {
 }
 
 func runRsyslog(args []string) error {
-	fs := pflag.NewFlagSet("gopersist rsyslog", pflag.ContinueOnError)
+	fs := pflag.NewFlagSet("nixpersist rsyslog", pflag.ContinueOnError)
 	fs.SortFlags = false
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "Usage: gopersist rsyslog [--check|--install|--remove] [--apparmor] [flags]")
+		fmt.Fprintln(fs.Output(), "Usage: nixpersist rsyslog [--check|--install|--remove] [--apparmor] [flags]")
 		fmt.Fprintln(fs.Output())
 		fmt.Fprintln(fs.Output(), "Flags:")
 		fs.PrintDefaults()
@@ -80,11 +80,11 @@ func runRsyslog(args []string) error {
 
 	doCheck := fs.Bool("check", false, "check system feasibility and exit")
 	doInstall := fs.Bool("install", false, "Installs triggerable rsyslog filter (disables AppArmor profile if required)")
-	doRemove := fs.Bool("remove", false, "Removes the gopersist rsyslog drop-in and reloads rsyslog")
+	doRemove := fs.Bool("remove", false, "Removes the NixPersist rsyslog drop-in and reloads rsyslog")
 	manageAppArmor := fs.Bool("apparmor", false, "manage the rsyslog AppArmor profile (disable on install, re-enable on remove)")
 	in := fs.StringP("log-file-in", "l", "/var/log/auth.log", "log file to monitor (imfile)")
 	out := fs.StringP("outfile", "o", "", "write rendered config to this file (default stdout)")
-	payload := fs.StringP("payload", "p", "/usr/bin/touch /tmp/gopersist", "payload binary to execute (omprog)")
+	payload := fs.StringP("payload", "p", "/usr/bin/touch /tmp/nixpersist", "payload binary to execute (omprog)")
 	payloadArgs := fs.String("payload-args", "", "optional arguments for payload binary")
 	trigger := fs.StringP("trigger", "t", "uhtavi0", "message substring to trigger on")
 
@@ -133,7 +133,7 @@ func runRsyslog(args []string) error {
 				return fmt.Errorf("failed to re-enable AppArmor profile: %w", err)
 			}
 		}
-		msg := "remove complete: /etc/rsyslog.d/99-gopersist.conf removed and rsyslog reloaded"
+		msg := "remove complete: /etc/rsyslog.d/99-nixpersist.conf removed and rsyslog reloaded"
 		if *manageAppArmor {
 			msg += "; AppArmor profile re-enabled"
 		}
@@ -158,7 +158,7 @@ func runRsyslog(args []string) error {
 		ProgramArgs:     *payloadArgs,
 		// Default ruleset is required for isolation and future expansion.
 		UseRuleset:  true,
-		RulesetName: "gopersist",
+		RulesetName: "nixpersist",
 	})
 	if err != nil {
 		return err
@@ -176,7 +176,7 @@ func runRsyslog(args []string) error {
 		if err := rsyslog.Install(cfg); err != nil {
 			return fmt.Errorf("install failed: %w", err)
 		}
-		msg := "install complete: /etc/rsyslog.d/99-gopersist.conf applied and rsyslog reloaded"
+		msg := "install complete: /etc/rsyslog.d/99-nixpersist.conf applied and rsyslog reloaded"
 		if *manageAppArmor {
 			msg += "; AppArmor profile disabled"
 		}
@@ -201,10 +201,10 @@ func runRsyslog(args []string) error {
 }
 
 func runDockerCompose(args []string) error {
-	fs := pflag.NewFlagSet("gopersist docker-compose", pflag.ContinueOnError)
+	fs := pflag.NewFlagSet("nixpersist docker-compose", pflag.ContinueOnError)
 	fs.SortFlags = false
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "Usage: gopersist docker-compose [--check|--install|--remove] [flags]")
+		fmt.Fprintln(fs.Output(), "Usage: nixpersist docker-compose [--check|--install|--remove] [flags]")
 		fmt.Fprintln(fs.Output())
 		fmt.Fprintln(fs.Output(), "Flags:")
 		fs.PrintDefaults()
@@ -215,8 +215,8 @@ func runDockerCompose(args []string) error {
 	doRemove := fs.Bool("remove", false, "stop the docker-compose deployment and delete the compose file")
 	payload := fs.StringP("payload", "p", "", "path to payload on HOST filesystem")
 	image := fs.StringP("image", "i", "alpine:latest", "container image to launch, will download if required")
-	name := fs.StringP("name", "n", "gopersist-compose", "service/container name for docker-compose")
-	output := fs.StringP("output", "o", "/opt/gopersist-docker-compose", "directory to place docker-compose.yml")
+	name := fs.StringP("name", "n", "nixpersist-compose", "service/container name for docker-compose")
+	output := fs.StringP("output", "o", "/opt/nixpersist-docker-compose", "directory to place docker-compose.yml")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
@@ -303,16 +303,16 @@ func runDockerCompose(args []string) error {
 }
 
 func printMainMenu(out io.Writer) {
-	const intro = `Usage: gopersist [module] [flags]
+	const intro = `Usage: nixpersist [module] [flags]
 
 Available persistence modules:
   rsyslog          Triggerable rsyslog filter persistence (imfile + omprog)
   docker-compose   Autostart persistence via docker-compose file
 
 Examples:
-  gopersist rsyslog --check
-  gopersist rsyslog -l /var/log/auth.log -p /usr/local/bin/payload -t trigger
-  gopersist docker-compose --check`
+  nixpersist rsyslog --check
+  nixpersist rsyslog -l /var/log/auth.log -p /usr/local/bin/payload -t trigger
+  nixpersist docker-compose --check`
 
 	fmt.Fprintln(out, intro)
 }

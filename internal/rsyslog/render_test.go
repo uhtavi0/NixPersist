@@ -43,15 +43,15 @@ func TestRenderConfig_WithRuleset(t *testing.T) {
 		ProgramPath:     "/bin/echo",
 		ProgramArgs:     "hello",
 		UseRuleset:      true,
-		RulesetName:     "gopersist",
+		RulesetName:     "nixpersist",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	mustContain(t, cfg, "module(load=\"imfile\" PollingInterval=\"10\")")
 	mustContain(t, cfg, "module(load=\"omprog\")")
-	mustContain(t, cfg, "input(\n\ttype=\"imfile\"\n\tFile=\"/path/to/access.log\"\n\tTag=\"access\"\n\tSeverity=\"info\"\n\tFacility=\"local6\"\n\taddMetadata=\"on\"\n\treopenOnTruncate=\"on\"\n\truleset=\"gopersist\"\n)")
-	mustContain(t, cfg, "ruleset(name=\"gopersist\") {")
+	mustContain(t, cfg, "input(\n\ttype=\"imfile\"\n\tFile=\"/path/to/access.log\"\n\tTag=\"access\"\n\tSeverity=\"info\"\n\tFacility=\"local6\"\n\taddMetadata=\"on\"\n\treopenOnTruncate=\"on\"\n\truleset=\"nixpersist\"\n)")
+	mustContain(t, cfg, "ruleset(name=\"nixpersist\") {")
 	mustContain(t, cfg, "if ($syslogtag contains 'access') and ($msg contains 'Chrome/133.7.0.0') then {")
 	mustContain(t, cfg, "action(type=\"omprog\" binary=\"/bin/echo hello\")")
 }

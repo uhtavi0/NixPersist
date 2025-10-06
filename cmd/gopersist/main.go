@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"gopersist/internal/dockercompose"
 	"gopersist/internal/rsyslog"
 )
 
@@ -50,6 +51,8 @@ func main() {
 	switch module {
 	case "rsyslog":
 		err = runRsyslog(moduleArgs)
+	case "docker-compose":
+		err = runDockerCompose(moduleArgs)
 	case "help":
 		root.Usage()
 		return
@@ -197,15 +200,119 @@ func runRsyslog(args []string) error {
 	return nil
 }
 
+func runDockerCompose(args []string) error {
+	fs := pflag.NewFlagSet("gopersist docker-compose", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.Usage = func() {
+		fmt.Fprintln(fs.Output(), "Usage: gopersist docker-compose [--check|--install|--remove] [flags]")
+		fmt.Fprintln(fs.Output())
+		fmt.Fprintln(fs.Output(), "Flags:")
+		fs.PrintDefaults()
+	}
+
+	doCheck := fs.Bool("check", false, "Check for docker privileges and local images available")
+	doInstall := fs.Bool("install", false, "create docker-compose.yml, launch with docker compose up")
+	doRemove := fs.Bool("remove", false, "stop the docker-compose deployment and delete the compose file")
+	payload := fs.StringP("payload", "p", "", "path to payload on HOST filesystem")
+	image := fs.StringP("image", "i", "alpine:latest", "container image to launch, will download if required")
+	name := fs.StringP("name", "n", "gopersist-compose", "service/container name for docker-compose")
+	output := fs.StringP("output", "o", "/opt/gopersist-docker-compose", "directory to place docker-compose.yml")
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	if fs.NArg() > 0 {
+		return fmt.Errorf("unexpected arguments for docker-compose module: %s", strings.Join(fs.Args(), ", "))
+	}
+
+	actions := 0
+	if *doCheck {
+		actions++
+	}
+	if *doInstall {
+		actions++
+	}
+	if *doRemove {
+		actions++
+	}
+	if actions == 0 {
+		fs.Usage()
+		return nil
+	}
+	if actions > 1 {
+		return errors.New("choose at most one of --check, --install, or --remove")
+	}
+
+	if *doCheck {
+		res := dockercompose.Check()
+		fmt.Print(res.Render())
+		return nil
+	}
+
+	if *doRemove {
+		if strings.TrimSpace(*output) == "" {
+			return errors.New("--output directory is required for --remove")
+		}
+		if err := dockercompose.Remove(*output); err != nil {
+			return err
+		}
+		fmt.Printf("remove complete: docker compose down and %s removed\n", dockercompose.DefaultComposeName)
+		return nil
+	}
+
+	// Installation path.
+	if strings.TrimSpace(*payload) == "" {
+		return errors.New("--payload is required for --install")
+	}
+	if strings.TrimSpace(*image) == "" {
+		return errors.New("--image is required for --install")
+	}
+	if strings.TrimSpace(*name) == "" {
+		return errors.New("--name is required for --install")
+	}
+	if strings.TrimSpace(*output) == "" {
+		return errors.New("--output directory is required for --install")
+	}
+
+	params := dockercompose.ConfigParams{
+		ServiceName:    *name,
+		Image:          *image,
+		PayloadCommand: *payload,
+	}
+	cfg, err := dockercompose.RenderConfig(params)
+	if err != nil {
+		return err
+	}
+
+	res := dockercompose.Check()
+	if !res.HasAccess() {
+		fmt.Fprintln(os.Stderr, "warning: docker commands may fail (insufficient permissions or daemon unavailable)")
+	}
+
+	path, err := dockercompose.Install(cfg, *output)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("install complete: %s written and docker compose up started (service %s)\n", path, *name)
+	return nil
+}
+
 func printMainMenu(out io.Writer) {
 	const intro = `Usage: gopersist [module] [flags]
 
 Available persistence modules:
-  rsyslog    Triggerable rsyslog filter persistence (imfile + omprog)
+  rsyslog          Triggerable rsyslog filter persistence (imfile + omprog)
+  docker-compose   Autostart persistence via docker-compose file
 
 Examples:
   gopersist rsyslog --check
-  gopersist rsyslog -l /var/log/auth.log -p /usr/local/bin/payload -t trigger`
+  gopersist rsyslog -l /var/log/auth.log -p /usr/local/bin/payload -t trigger
+  gopersist docker-compose --check`
 
 	fmt.Fprintln(out, intro)
 }

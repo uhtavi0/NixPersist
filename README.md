@@ -10,9 +10,14 @@ This is a personal project to learn Go Programming while exploring Linux Persist
 ## Persistence Mechanisms
 
 ### 1. Rsylog Filters (Triggerable)
-- Rsyslog filters can be configured to execute a program via the native "omprog" module when a log entry matches a given filter. This can be abused for any log that an attacker can control input for remotely.
+- Rsyslog filters can be configured to execute a program via the native "omprog" module when a log entry matches a given filter. This can be abused for any log that an attacker can control input for remotely. (*access.log, auth.log, etc)
 -  For example: a filter can be created for `/var/log/auth.log` that launches a payload whenever the user `h4ck3r` attempts to establish an SSH connection.
 - **Must be run as root**
 -  `--check`, `--install`, `--remove` options are available to verify persistence method is possible, install, and remove. 
 - `--apparmor` option can be used with either `--install` or `--remove` to enable or disable the apparmor profile for rsyslog.
 
+### 2. Docker Compose (Boot / AutoStart)
+- Launches a privileged container via docker-compose, mounts the host's root filesystem, and executes a payload inside the container
+- `--check`, `--install`, `--remove` for easy testing and cleanup
+- Flags set the payload command (`-p`), container image (`-i`), service/container name (`-n`), and compose output directory (`-o`).
+- Requires Docker with the current user running as root or part of the `docker` group.

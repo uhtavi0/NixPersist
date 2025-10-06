@@ -11,7 +11,7 @@ import (
 const (
 	// DefaultConfigDir is where rsyslog loads drop-in configs.
 	DefaultConfigDir  = "/etc/rsyslog.d"
-	DefaultConfigName = "99-gopersist.conf"
+	DefaultConfigName = "99-nixpersist.conf"
 )
 
 // Install writes the provided rsyslog configuration to /etc/rsyslog.d and
@@ -42,7 +42,7 @@ func Install(cfg string) error {
 	return nil
 }
 
-// Remove deletes the gopersist drop-in configuration and reloads rsyslog.
+// Remove deletes the NixPersist drop-in configuration and reloads rsyslog.
 // Requires root privileges.
 func Remove() error {
 	if os.Geteuid() != 0 {

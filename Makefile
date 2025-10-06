@@ -1,4 +1,4 @@
-APP_NAME := gopersist
+APP_NAME := nixpersist
 BIN_DIR := bin
 
 .PHONY: all build run test fmt lint clean

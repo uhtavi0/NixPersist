@@ -74,7 +74,7 @@ func RenderConfig(p ConfigParams) (string, error) {
 
 	var b bytes.Buffer
 	// Ensure modules
-	b.WriteString("# gopersist-generated rsyslog configuration\n")
+	b.WriteString("# NixPersist-generated rsyslog configuration\n")
 	if p.PollingInterval > 0 {
 		fmt.Fprintf(&b, "module(load=\"imfile\" PollingInterval=\"%d\")\n", p.PollingInterval)
 	} else {

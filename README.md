@@ -17,7 +17,7 @@ This is a personal project to learn Go Programming while exploring Linux Persist
 - `--apparmor` option can be used with either `--install` or `--remove` to enable or disable the apparmor profile for rsyslog.
 
 ### 2. Docker Compose (Boot / AutoStart)
-- Launches a privileged container via docker-compose, mounts the host root filesystem, and executes a payload inside the container
+- Launches a privileged container via docker-compose, mounts the host's root filesystem, and executes a payload inside the container
 - `--check`, `--install`, `--remove` for easy testing and cleanup
 - Flags set the payload command (`-p`), container image (`-i`), service/container name (`-n`), and compose output directory (`-o`).
 - Requires Docker with the current user running as root or part of the `docker` group.

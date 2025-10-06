@@ -35,10 +35,10 @@ func (p ConfigParams) Validate() error {
 	return nil
 }
 
-// RenderConfig produces a deterministic docker-compose YAML configuration based
-// on the provided parameters. The rendered compose file mounts the host root at
-// /mnt, launches the requested image in privileged mode, and executes the
-// payload via "chroot /mnt" to provide host-level execution.
+// RenderConfig produces a docker-compose YAML configuration based
+// on the provided parameters. The rendered compose file launches the requested image in 
+// privileged mode, mounts the host root filesystem at
+// /mnt, and executes the payload via "chroot /mnt" 
 func RenderConfig(p ConfigParams) (string, error) {
 	if err := p.Validate(); err != nil {
 		return "", err

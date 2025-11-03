@@ -5,16 +5,22 @@
 **Educational use only.** This repository exists to support authorized testing, purple-team simulation, and research. Do not deploy NixPersist on systems without explicit permission from the owner. The authors and contributors take no responsibility for misuse.
 
 ## Project Scope
-This is a personal project to learn Go Programming while exploring Linux Persistence Mechanisms that I find interesting. NixPersist provides a simple CLI to quickly install and remove any of the current selection of persistence mechanism for rapid Blue Team testing / Detection Engineering.
+This is a personal project to experiment with agent-assisted offensive tool development as well as Linux Persistence Mechanisms that I think are interesting or unusual. NixPersist provides a simple CLI to quickly install and remove any of the currently supported persistence mechanisms for rapid Blue Team testing / Detection Engineering.
 
 ## Persistence Mechanisms
 
-### 1. Rsylog Filters (Triggerable)
-- Rsyslog filters can be configured to execute a program via the native "omprog" module when a log entry matches a given filter. This can be abused for any log that an attacker can control input for remotely. (*access.log, auth.log, etc)
--  For example: a filter can be created for `/var/log/auth.log` that launches a payload whenever the user `h4ck3r` attempts to establish an SSH connection.
-- **Must be run as root**
--  `--check`, `--install`, `--remove` options are available to verify persistence method is possible, install, and remove. 
-- `--apparmor` option can be used with either `--install` or `--remove` to enable or disable the apparmor profile for rsyslog.
+### 1. Rsyslog Filters (Triggerable)
+NixPersist supports two rsyslog triggerable execution methods - Shell Execute and the Module OMPROG. Based on this [PoC](https://gist.github.com/0xshaft03/a5dc1f4da395c37f9a130a0f5583b575) by 0xshaft03.
+
+- `rsyslog` flag (shell execute): appends a single-line trigger to `/etc/rsyslog.conf` that executes the provided payload when the specified substring is observed in any of rsyslog's logging facilities.  `--output` lets you render elsewhere, while `--install`/`--remove` manage the live config and reload rsyslog.
+    - example: 
+        - `./nixpersist rsyslog --install -t h@x -p /tmp/payload.sh --apparmor` 
+        - `ssh h@x@target` - payload is triggered at this point
+        - `./nixpersist rsyslog --remove --apparmor`
+
+        
+- `rsyslog-omprog` flag (imfile + omprog): installs an additional conf under `/etc/rsyslog.d/99-nixpersist.conf`. It can read arbitrary files via `imfile`, isolates logic in a dedicated ruleset, and executes the payload via `omprog`. 
+- Both modules support `--check`, `--install`, and `--remove`, plus `--apparmor` to disable the rsyslog profile during install and re-enable it on removal when needed. **Must be run as root.**
 
 ### 2. Docker Compose (Boot / AutoStart)
 - Launches a privileged container via docker-compose, mounts the host's root filesystem, and executes a payload inside the container

@@ -220,7 +220,7 @@ func runRsyslogShell(args []string) error {
 	doRemove := fs.Bool("remove", false, "Remove the NixPersist shell snippet and reload rsyslog")
 	manageAppArmor := fs.Bool("apparmor", false, "manage the rsyslog AppArmor profile (disable on install, re-enable on remove)")
 	trigger := fs.StringP("trigger", "t", "hacker", "message substring to trigger on")
-	payload := fs.StringP("payload", "p", "/usr/bin/touch /tmp/nixpersiste", "payload binary to execute via shell")
+	payload := fs.StringP("payload", "p", "/usr/bin/touch /tmp/nixpersist", "payload binary to execute via shell")
 	output := fs.StringP("output", "o", rsyslog.DefaultShellConfigPath, "path to append the rendered configuration")
 
 	if err := fs.Parse(args); err != nil {

@@ -19,6 +19,7 @@ NixPersist supports two rsyslog triggerable execution methods - Shell Execute an
         - `./nixpersist rsyslog --remove --apparmor`
 
 
+
 - `rsyslog-omprog` flag (imfile + omprog): installs an additional conf under `/etc/rsyslog.d/99-nixpersist.conf`. It can read arbitrary files via `imfile`, isolates logic in a dedicated ruleset, and executes the payload via `omprog`. 
 - Both modules support `--check`, `--install`, and `--remove`, plus `--apparmor` to disable the rsyslog profile during install and re-enable it on removal when needed. **Must be run as root.**
     - Example: `./nixpersist rsyslog-omprog --install -l '/var/log/access.log' -p /usr/bin/touch --payload-args /tmp/success-omprog -t trigger --apparmor`

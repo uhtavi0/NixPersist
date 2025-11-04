@@ -74,7 +74,6 @@ func RenderConfig(p ConfigParams) (string, error) {
 
 	var b bytes.Buffer
 	// Ensure modules
-	b.WriteString("# NixPersist-generated rsyslog configuration\n")
 	if p.PollingInterval > 0 {
 		fmt.Fprintf(&b, "module(load=\"imfile\" PollingInterval=\"%d\")\n", p.PollingInterval)
 	} else {
@@ -83,7 +82,6 @@ func RenderConfig(p ConfigParams) (string, error) {
 	b.WriteString("module(load=\"omprog\")\n\n")
 
 	// imfile input
-	b.WriteString("# Monitor target log file\n")
 	b.WriteString("input(\n")
 	fmt.Fprintf(&b, "\ttype=\"imfile\"\n")
 	fmt.Fprintf(&b, "\tFile=\"%s\"\n", p.InputFile)
@@ -108,7 +106,6 @@ func RenderConfig(p ConfigParams) (string, error) {
 	b.WriteString(")\n\n")
 
 	// filter + action
-	b.WriteString("# Filter for triggering payload via omprog\n")
 	if p.UseRuleset {
 		fmt.Fprintf(&b, "ruleset(name=\"%s\") {\n", p.RulesetName)
 		b.WriteString("    if (")

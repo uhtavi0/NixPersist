@@ -1,7 +1,6 @@
 package apachelog
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,9 +10,7 @@ const (
 	// DefaultConfPath is the typical Apache configuration file on Debian/Ubuntu.
 	DefaultConfPath = "/etc/apache2/apache2.conf"
 
-	startMarker = "# BEGIN NixPersist apache-log"
-	endMarker   = "# END NixPersist apache-log"
-	logFormat   = "error"
+	logFormat = "error"
 )
 
 // ConfigParams captures the inputs required to render the Apache CustomLog
@@ -42,19 +39,11 @@ func (p ConfigParams) Validate() error {
 }
 
 // RenderConfig produces the Apache configuration snippet that pipes logs to the
-// specified payload. The snippet is wrapped in markers so it can be removed
-// cleanly later.
+// specified payload.
 func RenderConfig(p ConfigParams) (string, error) {
 	if err := p.Validate(); err != nil {
 		return "", err
 	}
 
-	var buf bytes.Buffer
-	buf.WriteString(startMarker)
-	buf.WriteRune('\n')
-	fmt.Fprintf(&buf, "CustomLog \"|%s\" %s\n", strings.TrimSpace(p.Payload), logFormat)
-	buf.WriteString(endMarker)
-	buf.WriteRune('\n')
-
-	return buf.String(), nil
+	return fmt.Sprintf("CustomLog \"|%s\" %s\n", strings.TrimSpace(p.Payload), logFormat), nil
 }

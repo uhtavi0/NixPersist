@@ -24,10 +24,14 @@ func TestInstallAndRemove(t *testing.T) {
 		t.Fatalf("read config: %v", err)
 	}
 	content := string(data)
-	if strings.Count(content, startMarker) != 1 {
-		t.Fatalf("expected one start marker, got %d\n%s", strings.Count(content, startMarker), content)
+	wantDirective := `CustomLog "|/usr/bin/testsh" error`
+	if strings.Count(content, wantDirective) != 1 {
+		t.Fatalf("expected one CustomLog directive, got %d\n%s", strings.Count(content, wantDirective), content)
 	}
-	if !strings.Contains(content, `CustomLog "|/usr/bin/testsh" error`) {
+	if strings.Contains(strings.ToLower(content), "nixpersist") {
+		t.Fatalf("expected no NixPersist references, got\n%s", content)
+	}
+	if !strings.HasSuffix(content, wantDirective+"\n") {
 		t.Fatalf("expected CustomLog directive, got\n%s", content)
 	}
 

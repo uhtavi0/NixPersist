@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"nixpersist/internal/apachelog"
 	"nixpersist/internal/dockercompose"
 	"nixpersist/internal/rsyslog"
 )
@@ -55,6 +56,8 @@ func main() {
 		err = runRsyslogShell(moduleArgs)
 	case "docker-compose":
 		err = runDockerCompose(moduleArgs)
+	case "apache-log":
+		err = runApacheLog(moduleArgs)
 	case "help":
 		root.Usage()
 		return
@@ -423,13 +426,113 @@ func runDockerCompose(args []string) error {
 	return nil
 }
 
+func runApacheLog(args []string) error {
+	fs := pflag.NewFlagSet("nixpersist apache-log", pflag.ContinueOnError)
+	fs.SortFlags = false
+	fs.Usage = func() {
+		fmt.Fprintln(fs.Output(), "Usage: nixpersist apache-log [--check|--install|--remove] [flags]")
+		fmt.Fprintln(fs.Output())
+		fmt.Fprintln(fs.Output(), "Flags:")
+		fs.PrintDefaults()
+	}
+
+	doCheck := fs.Bool("check", false, "check Apache prerequisites and exit")
+	doInstall := fs.Bool("install", false, "append CustomLog pipe to the Apache configuration")
+	doRemove := fs.Bool("remove", false, "remove the NixPersist CustomLog pipe from the Apache configuration")
+	payload := fs.StringP("payload", "p", "", "path to executable payload invoked via CustomLog")
+	confPath := fs.StringP("conf", "c", apachelog.DefaultConfPath, "path to apache2.conf")
+	noRestart := fs.Bool("no-restart", false, "skip restarting apache2 service after changes")
+
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	if fs.NArg() > 0 {
+		return fmt.Errorf("unexpected arguments for apache-log module: %s", strings.Join(fs.Args(), ", "))
+	}
+
+	if fs.NFlag() == 0 {
+		fs.Usage()
+		return nil
+	}
+
+	actions := 0
+	if *doCheck {
+		actions++
+	}
+	if *doInstall {
+		actions++
+	}
+	if *doRemove {
+		actions++
+	}
+	if actions == 0 {
+		fs.Usage()
+		return nil
+	}
+	if actions > 1 {
+		return errors.New("choose at most one of --check, --install, or --remove")
+	}
+	if *noRestart && !(*doInstall || *doRemove) {
+		return errors.New("--no-restart requires --install or --remove")
+	}
+	if strings.TrimSpace(*confPath) == "" {
+		return errors.New("--conf path must not be empty")
+	}
+
+	if *doCheck {
+		res := apachelog.Check(*confPath)
+		fmt.Print(res.Render())
+		return nil
+	}
+
+	restart := !*noRestart
+
+	if *doRemove {
+		if err := apachelog.Remove(*confPath, restart); err != nil {
+			return fmt.Errorf("remove failed: %w", err)
+		}
+		msg := fmt.Sprintf("remove complete: apache-log snippet removed from %s", *confPath)
+		if restart {
+			msg += "; apache2 restarted"
+		} else {
+			msg += "; restart skipped"
+		}
+		fmt.Println(msg)
+		return nil
+	}
+
+	if strings.TrimSpace(*payload) == "" {
+		return errors.New("--payload is required for --install")
+	}
+
+	params := apachelog.ConfigParams{
+		Payload: *payload,
+	}
+	if err := apachelog.Install(params, *confPath, restart); err != nil {
+		return fmt.Errorf("install failed: %w", err)
+	}
+	msg := fmt.Sprintf("install complete: apache-log CustomLog pipe appended to %s", *confPath)
+	if restart {
+		msg += "; apache2 restarted"
+	} else {
+		msg += "; restart skipped"
+	}
+	fmt.Println(msg)
+	return nil
+}
+
 func printMainMenu(out io.Writer) {
 	const intro = `Usage: nixpersist [module] [flags]
 
 Available persistence modules:
+  apache-log       Autostart persistence via Apache Logging Pipes
+  docker-compose   Autostart persistence via docker-compose file
   rsyslog          Triggerable rsyslog filter (shell execute)
   rsyslog-omprog   Triggerable rsyslog filter using imfile + omprog drop-in
-  docker-compose   Autostart persistence via docker-compose file
 
 Examples:
   nixpersist rsyslog --check

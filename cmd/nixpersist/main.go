@@ -89,7 +89,7 @@ func runRsyslogOmprog(args []string) error {
 	manageAppArmor := fs.Bool("apparmor", false, "manage the rsyslog AppArmor profile (disable on install, re-enable on remove)")
 	in := fs.StringP("log-file-in", "l", "/var/log/auth.log", "log file to monitor (imfile)")
 	out := fs.StringP("outfile", "o", "", "write rendered config to this file (default stdout)")
-	payload := fs.StringP("payload", "p", "/usr/bin/touch /tmp/system-update", "payload binary to execute (omprog)")
+	payload := fs.StringP("payload", "p", "/usr/bin/touch /tmp/nixpersist", "payload binary to execute (omprog)")
 	payloadArgs := fs.String("payload-args", "", "optional arguments for payload binary")
 	trigger := fs.StringP("trigger", "t", "uhtavi0", "message substring to trigger on")
 
@@ -220,7 +220,7 @@ func runRsyslogShell(args []string) error {
 	doRemove := fs.Bool("remove", false, "Remove the NixPersist shell snippet and reload rsyslog")
 	manageAppArmor := fs.Bool("apparmor", false, "manage the rsyslog AppArmor profile (disable on install, re-enable on remove)")
 	trigger := fs.StringP("trigger", "t", "hacker", "message substring to trigger on")
-	payload := fs.StringP("payload", "p", "/usr/bin/touch /tmp/system-update", "payload binary to execute via shell")
+	payload := fs.StringP("payload", "p", "/usr/bin/touch /tmp/nixpersiste", "payload binary to execute via shell")
 	output := fs.StringP("output", "o", rsyslog.DefaultShellConfigPath, "path to append the rendered configuration")
 
 	if err := fs.Parse(args); err != nil {
@@ -339,8 +339,8 @@ func runDockerCompose(args []string) error {
 	doRemove := fs.Bool("remove", false, "stop the docker-compose deployment and delete the compose file")
 	payload := fs.StringP("payload", "p", "", "path to payload on HOST filesystem")
 	image := fs.StringP("image", "i", "alpine:latest", "container image to launch, will download if required")
-	name := fs.StringP("name", "n", "compose-agent", "service/container name for docker-compose")
-	output := fs.StringP("output", "o", "/opt/compose-agent", "directory to place docker-compose.yml")
+	name := fs.StringP("name", "n", "compose-nixpersist", "service/container name for docker-compose")
+	output := fs.StringP("output", "o", "/opt/compose-nixpersist", "directory to place docker-compose.yml")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {

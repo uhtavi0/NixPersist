@@ -45,7 +45,6 @@ func RenderConfig(p ConfigParams) (string, error) {
 	}
 
 	var b bytes.Buffer
-	b.WriteString("# NixPersist-generated docker-compose configuration\n")
 	b.WriteString("version: \"3.9\"\n")
 	b.WriteString("services:\n")
 	fmt.Fprintf(&b, "  %s:\n", p.ServiceName)

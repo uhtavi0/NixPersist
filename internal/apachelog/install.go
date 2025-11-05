@@ -33,7 +33,7 @@ func Install(params ConfigParams, confPath string, restart bool) error {
 		return err
 	}
 
-	if bytes.Contains(original, []byte(startMarker)) {
+	if containsCustomLogDirective(string(original), strings.TrimSpace(cfg)) {
 		return errors.New("apache-log snippet already present in configuration")
 	}
 
@@ -42,10 +42,10 @@ func Install(params ConfigParams, confPath string, restart bool) error {
 	if buf.Len() > 0 && !bytes.HasSuffix(buf.Bytes(), []byte("\n")) {
 		buf.WriteByte('\n')
 	}
-	if buf.Len() > 0 {
+	buf.WriteString(cfg)
+	if !strings.HasSuffix(cfg, "\n") {
 		buf.WriteByte('\n')
 	}
-	buf.WriteString(cfg)
 
 	if err := os.WriteFile(confPath, buf.Bytes(), mode); err != nil {
 		return fmt.Errorf("write apache configuration: %w", err)
@@ -72,50 +72,11 @@ func Remove(confPath string, restart bool) error {
 		return err
 	}
 
-	content := string(original)
-	start := strings.Index(content, startMarker)
-	if start == -1 {
+	content, found := removeCustomLogDirective(string(original))
+	if !found {
 		return errors.New("apache-log snippet not found in configuration")
 	}
-	end := strings.Index(content[start:], endMarker)
-	if end == -1 {
-		return errors.New("apache-log snippet end marker missing")
-	}
-	end += start + len(endMarker)
-
-	trimStart := start
-	if trimStart > 0 {
-		i := trimStart - 1
-		for i >= 0 && (content[i] == ' ' || content[i] == '\t') {
-			i--
-		}
-		if i >= 0 && content[i] == '\n' {
-			trimStart = i
-			if i > 0 && content[i-1] == '\n' {
-				trimStart = i - 1
-			}
-		}
-	}
-
-	trimEnd := end
-	for trimEnd < len(content) && (content[trimEnd] == '\n' || content[trimEnd] == '\r') {
-		trimEnd++
-	}
-
-	var buf bytes.Buffer
-	buf.WriteString(content[:trimStart])
-	if trimEnd < len(content) {
-		buf.WriteByte('\n')
-		buf.WriteString(strings.TrimLeft(content[trimEnd:], "\n"))
-	}
-	result := buf.Bytes()
-
-	// Ensure file ends with newline if original did.
-	if len(result) > 0 && result[len(result)-1] != '\n' {
-		result = append(result, '\n')
-	}
-
-	if err := os.WriteFile(confPath, result, mode); err != nil {
+	if err := os.WriteFile(confPath, []byte(content), mode); err != nil {
 		return fmt.Errorf("write apache configuration: %w", err)
 	}
 
@@ -153,4 +114,58 @@ func restartApache() error {
 		return fmt.Errorf("systemctl restart %s: %w: %s", serviceName, err, strings.TrimSpace(string(output)))
 	}
 	return nil
+}
+
+func containsCustomLogDirective(content, directive string) bool {
+	for _, line := range strings.Split(content, "\n") {
+		if strings.TrimSpace(line) == directive {
+			return true
+		}
+	}
+	return false
+}
+
+func isCustomLogDirective(line string) bool {
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, `CustomLog "|`) {
+		return false
+	}
+	if !strings.HasSuffix(line, " "+logFormat) {
+		return false
+	}
+	return true
+}
+
+func removeCustomLogDirective(content string) (string, bool) {
+	lines := strings.Split(content, "\n")
+	var result []string
+	removed := false
+
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if !removed && isCustomLogDirective(line) {
+			removed = true
+			// Skip immediate blank line after the directive if present.
+			if i+1 < len(lines) && strings.TrimSpace(lines[i+1]) == "" {
+				i++
+			}
+			continue
+		}
+		result = append(result, line)
+	}
+
+	if !removed {
+		return content, false
+	}
+
+	// Trim trailing blank lines to keep file tidy.
+	for len(result) > 0 && strings.TrimSpace(result[len(result)-1]) == "" {
+		result = result[:len(result)-1]
+	}
+
+	joined := strings.Join(result, "\n")
+	if joined != "" {
+		joined += "\n"
+	}
+	return joined, true
 }

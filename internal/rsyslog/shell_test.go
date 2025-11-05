@@ -1,9 +1,6 @@
 package rsyslog
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestRenderShellConfig(t *testing.T) {
 	cfg, err := RenderShellConfig(ShellConfigParams{
@@ -13,18 +10,19 @@ func TestRenderShellConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RenderShellConfig returned error: %v", err)
 	}
-	if !containsAll(cfg, shellMarkerStart, shellMarkerEnd, ":msg, contains, \"hacker\" ^/path/to/payload") {
+	want := ":msg, contains, \"hacker\" ^/path/to/payload\n"
+	if cfg != want {
 		t.Fatalf("unexpected config contents:\n%s", cfg)
 	}
 }
 
-func TestRemoveShellBlock(t *testing.T) {
+func TestRemoveShellDirective(t *testing.T) {
 	snippet, err := RenderShellConfig(ShellConfigParams{Trigger: "foo", Payload: "/bin/true"})
 	if err != nil {
 		t.Fatalf("RenderShellConfig returned error: %v", err)
 	}
 	original := "line1\n" + snippet + "line2\n"
-	data, ok := removeShellBlock([]byte(original))
+	data, ok := removeShellDirective([]byte(original))
 	if !ok {
 		t.Fatal("expected snippet to be found")
 	}
@@ -33,17 +31,8 @@ func TestRemoveShellBlock(t *testing.T) {
 		t.Fatalf("unexpected result: got %q, want %q", string(data), expected)
 	}
 
-	_, ok = removeShellBlock([]byte("nothing here"))
+	_, ok = removeShellDirective([]byte("nothing here"))
 	if ok {
 		t.Fatal("expected snippet to be absent")
 	}
-}
-
-func containsAll(s string, substrings ...string) bool {
-	for _, sub := range substrings {
-		if !strings.Contains(s, sub) {
-			return false
-		}
-	}
-	return true
 }

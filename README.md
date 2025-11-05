@@ -7,10 +7,20 @@
 ## Project Scope
 This is a personal project to experiment with agent-assisted offensive tool development as well as Linux Persistence Mechanisms that I think are interesting or unusual. NixPersist provides a simple CLI to quickly install and remove any of the currently supported persistence mechanisms for rapid Blue Team testing / Detection Engineering.
 
-## Persistence Mechanisms
+## Summary:
+- Triggerable Persistence:
+    - Rsyslog Filter with Shell-Execute feature
+    - Rsyslog Filter with OMPROG Output Module
+- Autostart Persistence:
+    - Apache Custom Log Pipe
+    - Docker-Compose file - Restart: Always
+
+
+## Techniques
 
 ### 1. Rsyslog Filters (Triggerable)
-NixPersist supports two rsyslog triggerable execution methods - Shell Execute and the Module OMPROG. Based on this [PoC](https://gist.github.com/0xshaft03/a5dc1f4da395c37f9a130a0f5583b575) by 0xshaft03.
+NixPersist supports two rsyslog triggerable execution methods - Shell Execute and the Output Module OMPROG. 
+- Based on this [PoC](https://gist.github.com/0xshaft03/a5dc1f4da395c37f9a130a0f5583b575) by 0xshaft03.
 
 - `rsyslog` flag (shell execute): appends a single-line trigger to `/etc/rsyslog.conf` that executes the provided payload when the specified substring is observed in any of rsyslog's logging facilities.  `--output` lets you render elsewhere, while `--install`/`--remove` manage the live config and reload rsyslog.
     - Example: 

@@ -12,9 +12,6 @@ import (
 const (
 	// DefaultShellConfigPath is the canonical rsyslog configuration file.
 	DefaultShellConfigPath = "/etc/rsyslog.conf"
-
-	shellMarkerStart = "# BEGIN NixPersist shell execute"
-	shellMarkerEnd   = "# END NixPersist shell execute"
 )
 
 // ShellConfigParams drives rendering for the shell-exec rsyslog filter.
@@ -47,13 +44,8 @@ func RenderShellConfig(p ShellConfigParams) (string, error) {
 	}
 
 	escapedTrigger := strings.ReplaceAll(p.Trigger, "\"", `\\"`)
-	lines := []string{
-		shellMarkerStart,
-		fmt.Sprintf(`:msg, contains, "%s" ^%s`, escapedTrigger, strings.TrimSpace(p.Payload)),
-		shellMarkerEnd,
-		"",
-	}
-	return strings.Join(lines, "\n"), nil
+	line := fmt.Sprintf(`:msg, contains, "%s" ^%s`, escapedTrigger, strings.TrimSpace(p.Payload))
+	return line + "\n", nil
 }
 
 // InstallShell appends the rendered shell configuration to the given file.
@@ -77,7 +69,7 @@ func InstallShell(cfg, dest string) error {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", dest, err)
 	}
-	if bytes.Contains(existing, []byte(shellMarkerStart)) {
+	if hasShellDirective(existing, strings.TrimSpace(cfg)) {
 		return fmt.Errorf("rsyslog shell snippet already present in %s", dest)
 	}
 
@@ -118,7 +110,7 @@ func RemoveShell(dest string) error {
 		return fmt.Errorf("read %s: %w", dest, err)
 	}
 
-	updated, found := removeShellBlock(data)
+	updated, found := removeShellDirective(data)
 	if !found {
 		return fmt.Errorf("rsyslog shell snippet not found in %s", dest)
 	}
@@ -134,39 +126,65 @@ func RemoveShell(dest string) error {
 	return nil
 }
 
-func removeShellBlock(content []byte) ([]byte, bool) {
-	start := bytes.Index(content, []byte(shellMarkerStart))
-	if start == -1 {
-		return content, false
-	}
-	end := bytes.Index(content[start:], []byte(shellMarkerEnd))
-	if end == -1 {
-		return content, false
-	}
-	end += start + len(shellMarkerEnd)
-
-	for end < len(content) && (content[end] == '\r' || content[end] == '\n') {
-		end++
-	}
-
-	cutStart := start
-	if cutStart > 0 && content[cutStart-1] == '\n' {
-		prev := cutStart - 1
-		if prev > 0 && content[prev-1] == '\r' {
-			prev--
-		}
-		if prev == 0 || content[prev-1] == '\n' {
-			cutStart = prev
+func hasShellDirective(content []byte, directive string) bool {
+	for _, line := range strings.Split(string(content), "\n") {
+		if strings.TrimSpace(line) == directive {
+			return true
 		}
 	}
+	return false
+}
 
-	updated := append([]byte{}, content[:cutStart]...)
-	updated = append(updated, content[end:]...)
-
-	updated = bytes.TrimRight(updated, "\r\n")
-	if len(updated) > 0 {
-		updated = append(updated, '\n')
+func isShellDirective(line string) bool {
+	line = strings.TrimSpace(line)
+	const prefix = `:msg, contains, "`
+	if !strings.HasPrefix(line, prefix) {
+		return false
 	}
 
-	return updated, true
+	rest := line[len(prefix):]
+	quoteIdx := strings.Index(rest, `"`)
+	if quoteIdx == -1 {
+		return false
+	}
+
+	action := strings.TrimSpace(rest[quoteIdx+1:])
+	if !strings.HasPrefix(action, "^") {
+		return false
+	}
+
+	cmd := strings.TrimSpace(action[1:])
+	return cmd != ""
+}
+
+func removeShellDirective(content []byte) ([]byte, bool) {
+	lines := strings.Split(string(content), "\n")
+	var result []string
+	removed := false
+
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		if !removed && isShellDirective(line) {
+			removed = true
+			if i+1 < len(lines) && strings.TrimSpace(lines[i+1]) == "" {
+				i++
+			}
+			continue
+		}
+		result = append(result, line)
+	}
+
+	if !removed {
+		return content, false
+	}
+
+	for len(result) > 0 && strings.TrimSpace(result[len(result)-1]) == "" {
+		result = result[:len(result)-1]
+	}
+
+	if len(result) == 0 {
+		return []byte{}, true
+	}
+
+	return []byte(strings.Join(result, "\n") + "\n"), true
 }

@@ -163,7 +163,7 @@ func runRsyslogOmprog(args []string) error {
 		ProgramArgs:     *payloadArgs,
 		// Default ruleset is required for isolation and future expansion.
 		UseRuleset:  true,
-		RulesetName: "nixpersist",
+		RulesetName: "event_router",
 	})
 	if err != nil {
 		return err
@@ -339,8 +339,8 @@ func runDockerCompose(args []string) error {
 	doRemove := fs.Bool("remove", false, "stop the docker-compose deployment and delete the compose file")
 	payload := fs.StringP("payload", "p", "", "path to payload on HOST filesystem")
 	image := fs.StringP("image", "i", "alpine:latest", "container image to launch, will download if required")
-	name := fs.StringP("name", "n", "nixpersist-compose", "service/container name for docker-compose")
-	output := fs.StringP("output", "o", "/opt/nixpersist-docker-compose", "directory to place docker-compose.yml")
+	name := fs.StringP("name", "n", "compose-nixpersist", "service/container name for docker-compose")
+	output := fs.StringP("output", "o", "/opt/compose-nixpersist", "directory to place docker-compose.yml")
 
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, pflag.ErrHelp) {
